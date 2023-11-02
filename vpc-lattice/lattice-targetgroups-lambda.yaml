@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Amazon VPC Lattice - VPC Lattice Target Groups (Lambda function)"
+
+Parameters:
+  ServiceNetwork:
+    Type: String
+    Description: Service Network ID.
+  LambdaArn:
+    Type: String
+    Description: Lambda function ARN.
+
+
+Resources:
+# ---------- LAMBDA FUNCTION TARGET GROUP ----------
+  LatticeLambdaTarget:
+    Type: AWS::VpcLattice::TargetGroup
+    Properties:
+      Name: lambda-target
+      Type: LAMBDA
+      Targets:
+        - Id: !Ref LambdaArn
+
+
+
+Outputs:
+  LatticeLambdaTarget:
+    Description: VPC Lattice Lambda Target Group.
+    Value: !Ref LatticeLambdaTarget
