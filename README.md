@@ -6,6 +6,9 @@ This repository contains sample code to deploy an application layer network usin
 You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
 &nbsp;  
 
+This is built based on the AWS Sample project [Amazon VPC Lattice - Build secure multi-account multi-VPC connectivity for your applications](https://github.com/aws-samples/build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice), modified to include the VMware Cloud on AWS service components.
+&nbsp;  
+
 You will connect them using Amazon VPC Lattice with the following architecture.
 
 ![diagram](assets/diagram.png "Diagram")
@@ -230,7 +233,7 @@ aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lat
 
 ### Deploy VMC backend service and integrate it into Service Network. 
 
-* Now we will deploy the VMC backend service onto VMs running on SDDC, and integrate it to the Lattice sercie network. First, deploy the (containerized) VMC backend service onto the Linux VMs running on the SDDC.
+* Now we will deploy the VMC backend service onto VMs running on SDDC, and integrate it to the Lattice sercie network. First, deploy the (containerized) VMC backend service onto the Linux VMs running on the SDDC. You will need to supply the **VMC API Token**, **Org ID** and **SDDC ID**. 
 
 ```bash
 export VMC_API_TOKEN={}
@@ -322,7 +325,8 @@ aws cloudformation delete-stack --stack-name lambda-application --region $AWS_RE
 aws cloudformation delete-stack --stack-name service-network --region $AWS_REGION
 ```
 
-
+## Original AWS Sample
+* [Amazon VPC Lattice - Build secure multi-account multi-VPC connectivity for your applications](https://github.com/aws-samples/build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice)
 
 ## References
 
