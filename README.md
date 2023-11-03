@@ -2,8 +2,10 @@
 
 This repository contains sample code to deploy an application layer network using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). 
 &nbsp;  
+
 You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
 &nbsp;  
+
 You will connect them using Amazon VPC Lattice with the following architecture.
 
 ![diagram](assets/diagram.png "Diagram")
@@ -19,7 +21,6 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * Each service is deployed in its own VPC, which can belong to the same or different AWS accounts. 
 * EKS-Cluster1 VPC and EKS-Cluster2 VPC are using overlapping CIDR. This is intential to showcase VPC Lattice can solve IP confilicting issues since it uses an unique link-local address range. 
 
-&nbsp;   
 
 
 
