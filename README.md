@@ -10,13 +10,14 @@ This repository contains example code to deploy a service to service communicati
 * [AWS CLI](https://aws.amazon.com/cli/) installed - for the deployment of VPC Lattice resources and applications using [AWS CloudFormation](https://aws.amazon.com/cloudformation/).
 * `eksctl` and `kubectl` installed - for the deployment of EKS applications.
 * Remember to use an AWS Region where VPC Lattice is supported.
+* Deploy a VMware Cloud on AWS SDDC within the same region as the VPC Lattice service network. 
 
 ## Deployment
 
 Before start with the deployment, let's define some variables we'll use during the deployment:
 
 ```bash 
-export AWS_REGION=us-west-2
+export AWS_REGION=ap-southeast-2
 export SERVICE_NETWORK_NAME=service-network
 export CLUSTER1_NAME=cluster1
 export CLUSTER2_NAME=cluster2
@@ -24,20 +25,12 @@ export CLUSTER2_NAME=cluster2
 
 ### Create Amazon VPC Lattice Service Network
 
-First things first, we create the Service Network - central piece in our service-to-service communication. We have this resource defined in the [lattice-service-network](./vpc-lattice/lattice-service-network.yaml) file, so the only thing we need is deploy that AWS CloudFormation template:
+First, we create the Service Network - central piece in our service-to-service communication. We have this resource defined in the [lattice-service-network](./vpc-lattice/lattice-service-network.yaml) file, so the only thing we need is deploy that AWS CloudFormation template:
 
 ```bash
 aws cloudformation deploy --stack-name service-network --template-file ./vpc-lattice/lattice-service-network.yaml --region $AWS_REGION --parameter-overrides ServiceNetworkName=$SERVICE_NETWORK_NAME  --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
-```
 
-### Create the application hosted in the Auto Scaling group
-
-With our Service Network ready, now it's time to deploy the different applications - we start with the one hosted in the Auto Scaling group. In the [app-asg](./applications/app-asg.yaml) file you will find the definition of the application and the network resources, plus the VPC association to the Service Network - we'll need to obtain the Service Network ID from the output of the previous CloudFormation stack.
-
-```bash
 export SERVICE_NETWORK_ID=$(aws cloudformation describe-stacks --stack-name service-network --query 'Stacks[0].Outputs[?OutputKey == `ServiceNetworkID`].OutputValue' --output text --region $AWS_REGION)
-
-aws cloudformation deploy --stack-name asg-application --template-file ./applications/app-asg.yaml --region $AWS_REGION --parameter-overrides ServiceNetwork=$SERVICE_NETWORK_ID --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
 ```
 
 ### Create the application hosted in the AWS Lambda function
@@ -70,7 +63,7 @@ aws iam create-policy \
 export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
 ```
 
-Also, we will need to update the Security Groups use by our clusters to receive traffic from the VPC Lattice fleet. To simplify this configuration, we will make use of the VPC Lattice [managed prefix list](https://docs.aws.amazon.com/vpc/latest/userguide/managed-prefix-lists.html) - make sure you use the prefix list ID of the AWS Region you are using. Before configuring this entry in the Security Groups, let's get the CIDR blocks from the managed prefix list. See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for more information.
+Also, we will need to update the Security Groups used by our clusters to receive traffic from the VPC Lattice fleet. To simplify this configuration, we will make use of the VPC Lattice [managed prefix list](https://docs.aws.amazon.com/vpc/latest/userguide/managed-prefix-lists.html) - make sure you use the prefix list ID of the AWS Region you are using. Before configuring this entry in the Security Groups, let's get the CIDR blocks from the managed prefix list. See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for more information.
 
 ```bash
 export PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
@@ -89,22 +82,25 @@ Time to deploy the gateway controller. Let's start with **cluster1**. We'll perf
 kubectl config use-context cluster1
 
 export CLUSTER1_SG=$(aws eks describe-cluster --name $CLUSTER1_NAME | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+
 aws ec2 authorize-security-group-ingress --group-id $CLUSTER1_SG --cidr $MANAGED_PREFIX --protocol -1
 
-kubectl apply -f ./vpc-lattice/controller/deploy-namesystem.yaml
-
 eksctl utils associate-iam-oidc-provider --region=${AWS_REGION} --cluster=${CLUSTER1_NAME} --approve
-eksctl create iamserviceaccount \
-    --cluster=${CLUSTER1_NAME} \
-    --namespace=system \
-    --name=gateway-api-controller \
-    --attach-policy-arn=${VPCLatticeControllerIAMPolicyArn} \
-    --override-existing-serviceaccounts \
-    --region ${AWS_REGION} \
-    --approve
 
-kubectl apply -f ./vpc-lattice/controller/deploy-resources.yaml
-kubectl apply -f ./vpc-lattice/controller/gatewayclass.yaml
+kubectl apply -f ./aws-application-networking-k8s/examples/deploy-namesystem.yaml
+
+eksctl create iamserviceaccount \
+   --cluster=$CLUSTER1_NAME \
+   --namespace=aws-application-networking-system \
+   --name=gateway-api-controller \
+   --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
+   --override-existing-serviceaccounts \
+   --region $AWS_REGION \
+   --approve
+
+kubectl apply -f ./aws-application-networking-k8s/examples/deploy-v0.0.14.yaml
+kubectl apply -f ./aws-application-networking-k8s/examples/gatewayclass.yaml
+
 ```
 
 We proceed the same, but now with **cluster2**:
@@ -113,22 +109,25 @@ We proceed the same, but now with **cluster2**:
 kubectl config use-context cluster2
 
 export CLUSTER2_SG=$(aws eks describe-cluster --name $CLUSTER2_NAME | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+
 aws ec2 authorize-security-group-ingress --group-id $CLUSTER2_SG --cidr $MANAGED_PREFIX --protocol -1
 
-kubectl apply -f ./vpc-lattice/controller/deploy-namesystem.yaml
-
 eksctl utils associate-iam-oidc-provider --region=${AWS_REGION} --cluster=${CLUSTER2_NAME} --approve
-eksctl create iamserviceaccount \
-    --cluster=${CLUSTER2_NAME} \
-    --namespace=system \
-    --name=gateway-api-controller \
-    --attach-policy-arn=${VPCLatticeControllerIAMPolicyArn} \
-    --override-existing-serviceaccounts \
-    --region ${AWS_REGION} \
-    --approve
 
-kubectl apply -f ./vpc-lattice/controller/deploy-resources.yaml
-kubectl apply -f ./vpc-lattice/controller/gatewayclass.yaml
+kubectl apply -f ./aws-application-networking-k8s/examples/deploy-namesystem.yaml
+
+eksctl create iamserviceaccount \
+   --cluster=$CLUSTER2_NAME \
+   --namespace=aws-application-networking-system \
+   --name=gateway-api-controller \
+   --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
+   --override-existing-serviceaccounts \
+   --region $AWS_REGION \
+   --approve
+
+
+kubectl apply -f ./aws-application-networking-k8s/examples/deploy-v0.0.14.yaml
+kubectl apply -f ./aws-application-networking-k8s/examples/gatewayclass.yaml
 ```
 
 With this, it's time to create the EKS applications. However, before that, let's deploy the VPC Lattice Services - as we will need some of their domain names to configure these applications.
@@ -143,7 +142,7 @@ aws cloudformation deploy --stack-name lattice-services --template-file ./vpc-la
 
 ### Create EKS "frontend" and "backend" applications
 
-Now that we have the Lattice Services created (still without routing configuration) now we can point to the one we need in our EKS applications. Add the Service3 domain name inside the [back-end.yaml](./applications/apps-eks/kubernetes/back-end.yaml) and [front-end.yaml](./applications/apps-eks/kubernetes/front-end.yaml) files. Now we're ready to deploy the `frontend` and `backend` applications:
+Now that we have the Lattice Services created (without routing configuration), we can point to the one we need in our EKS applications. Add the Service3 domain name inside the [back-end.yaml](./applications/apps-eks/kubernetes/back-end.yaml) and [front-end.yaml](./applications/apps-eks/kubernetes/front-end.yaml) files. Now we're ready to deploy the `frontend` and `backend` applications:
 
 ```bash
 kubectl config use-context cluster1
