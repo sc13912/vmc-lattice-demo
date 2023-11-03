@@ -10,7 +10,7 @@ This repository contains example code to deploy a service to service communicati
 * [AWS CLI](https://aws.amazon.com/cli/) installed - for the deployment of VPC Lattice resources and applications using [AWS CloudFormation](https://aws.amazon.com/cloudformation/).
 * `eksctl` and `kubectl` installed - for the deployment of EKS applications.
 * Remember to use an AWS Region where VPC Lattice is supported.
-* Deploy a VMware Cloud on AWS SDDC within the same region as the VPC Lattice service network. 
+* Deploy a VMware Cloud on AWS SDDC with a Connected VPC at the same region as the VPC Lattice service network. 
 
 ## Deployment
 
@@ -174,7 +174,7 @@ kubectl apply -f ./vpc-lattice/routes/backend-export.yaml
 Within the AWS Conosole, you should see the two EKS services are exported to VPC Lattice as the service target groups. 
 ![eks_svc_export](assets/eks_svc_export.png "eks_svc_export")
 
-* Next, we will associate the two EKS VPCs to the Lattice Service Network using CloudFormation.
+* Since the two EKS services require access to other Lattice services, we'll also need to associate their VPCs to the Lattice Service Network.
 
 ```bash
 export Cluster1VpcID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=eksctl-$CLUSTER1_NAME-cluster/VPC --region $AWS_REGION | jq -r '.Vpcs[0].VpcId')
@@ -204,6 +204,27 @@ export TARGETLAMBDA=$(aws cloudformation describe-stacks --stack-name lattice-ta
 aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lattice/lattice-routes.yaml --region $AWS_REGION --parameter-overrides Service1=$SERVICE1 Service2=$SERVICE2 Service3=$SERVICE3 TargetGroupCluster1=$TARGETCLUSTER1 TargetGroupCluster2=$TARGETCLUSTER2 TargetGroupLambda=$TARGETLAMBDA --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
 ```
 
+
+### Deploy VMC backend service and integrate it into Service Network. 
+
+* Deploy (Containerized) VMC backend service to the Linux VMs running on the SDDC
+
+```bash
+export VMC_API_TOKEN={}
+export VMC_ORG_ID={}
+export VMC_SDDC_ID={}
+
+sudo docker login
+sudo docker pull schen13912/vmc-backend:latest
+sudo docker run --rm -ti -d  -p  3000:3000 -e VMC_API_TOKEN=$VMC_API_TOKEN -e VMC_ORG_ID=$VMC_ORG_ID -e VMC_SDDC_ID=$VMC_SDDC_ID schen13912/vmc-backend:latest 
+```
+* Within the Connected VPC, create a **Internal** Application Load Balncer, and register the VM workloads (running VMC backend services) as remote IP targets.  
+
+* Next, create a Lattice Target Group using the ALB as a target. 
+![vmc_alb_tg](assets/vmc_alb_tg.png "vmc_alb_tg")
+
+* Finally, add a Http Listner to **Service2** forwarding to the ALB target group. 
+![vmc_lattice_service](assets/vmc_lattice_service.png "vmc_lattice_service")
 
 
 
