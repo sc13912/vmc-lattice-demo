@@ -22,7 +22,7 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * **frontend** service can also access lambda directly via Lattice **Service3** on path "/lambda".
 * **frontend** service will access **vmc-backend** service (runnig on SDDC) via Lattice **Service2** on path "/vmc".
 * Each service is deployed in its own VPC, which can belong to the same or different AWS accounts. 
-* EKS-Cluster1 VPC and EKS-Cluster2 VPC are using overlapping CIDR. This is intential to showcase VPC Lattice can solve IP confilicting issues since it uses an unique link-local address range. 
+* EKS-Cluster1 VPC and EKS-Cluster2 VPC are using overlapping CIDR. This is intential to showcase VPC Lattice can solve IP conflicting issues since it uses an unique link-local address range. 
 
 
 
@@ -234,7 +234,7 @@ aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lat
 
 ### Deploy VMC backend service and integrate it into Service Network. 
 
-* Now we will deploy the VMC backend service onto VMs running on SDDC, and integrate it to the Lattice sercie network. First, deploy the (containerized) VMC backend service onto the Linux VMs running on the SDDC. You will need to supply the **VMC API Token**, **Org ID** and **SDDC ID**. 
+* Now we will deploy the VMC backend service onto the Linux VMs running on SDDC, and integrate it to the Lattice sercie network. To deploy the (containerized) VMC backend service, you will need to supply the **VMC API Token**, **Org ID** and **SDDC ID**. 
 
 ```bash
 export VMC_API_TOKEN={}
@@ -259,27 +259,31 @@ sudo docker run --rm -ti -d  -p  3000:3000 -e VMC_API_TOKEN=$VMC_API_TOKEN -e VM
 
 ## Testing Connectivity
 
-Everything is created! Now we have all our applications either consuming or providing its services via VPC Lattice. So it's time to check that we can indeed consume those applications.
+Now we have all our applications either consuming or providing its services via VPC Lattice. So it's time to test those services and verify inter-app connectivities. 
 
-Let's start checking if **frontend (cluster1) can consume both backend (cluster2) and the Lambda function**. Port-forward the frontend application (so it will be visible in your browswer as localhost:8080):
+Let's start checking if **frontend (cluster1) can consume both backend (cluster2) and the Lambda function**. We can create a new **Client VPC** (with a Bastion host) and associate it to the VPC Lattice Network. There is no additional configurations required at the client VPC, as VPC Lattice will automatically deploy the Lattice endpoint and configure routes at the VPC route tables. 
+&nbsp;
+
+Note if you are using a Windows Bastion host, you'll need to configure a static route for the VPC Lattice link-local prefix (169.254.171.0/24), as [pointed out here](https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html). 
 
 ```
-kubectl config use-context cluster1
-kubectl port-forward svc/frontend 8080:80
+route add 169.254.171.0 mask 255.255.255.0 vpc-router-ip-address -p
 ```
+Now you should be able to acccess the frontend service using **Service1** DNS name. 
 
 ![base_path](assets/base_path.png "Frotend application base path")
 
-If you use the path */backend*, we are calling the *backend* application hosted in *cluster2*. The *backend* application will also the Lambda function to retrieve the AWS Region where the application is located. You will see in your browser the following:
+If you use the path */backend*, we are calling the *backend* application hosted in *EKS cluster2*. The *backend* application will then call the Lambda function to retrieve the AWS Region where the application is located.
 
 ![eks_path](assets/eks_path.png "Frotend application eks path")
 
-If you use the path */lambda*, *cluster1* is calling directly the Lamba function to get the AWS Region. You will see in your browser the following:
+If you use the path */lambda*, frontend will call directly the Lamba function to get the AWS Region:
 
 ![lambda_path](assets/lambda_path.png "Frotend application lambda path")
 
-* EKS cluster1 is talking directly to the Lambda function.
+Now, if you use the path */vmc*, you will call the VMC backend service hosted at the Linux VMs on the SDDC. 
 
+![vmc_path](assets/vmc_path.png "Frotend application vmc path")
 
 
 &nbsp;   &nbsp;   &nbsp;
