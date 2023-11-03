@@ -142,7 +142,12 @@ aws cloudformation deploy --stack-name lattice-services --template-file ./vpc-la
 
 ### Create EKS "frontend" and "backend" applications
 
-Now that we have the Lattice Services created (without routing configuration), we can point to the one we need in our EKS applications. Add the Service3 domain name inside the [back-end.yaml](./applications/apps-eks/kubernetes/back-end.yaml) and [front-end.yaml](./applications/apps-eks/kubernetes/front-end.yaml) files. Now we're ready to deploy the `frontend` and `backend` applications:
+Now that we have the Lattice Services created (still without routing configuration), we can point to the corresponding services within our EKS applications:
+
+* Replace the **LATTICE_URL** with **Service3** domain name, and **LATTICE_URL2** with the **Service2** domain name inside the [front-end.yaml](./applications/apps-eks/kubernetes/front-end.yaml)
+* Replace the **LATTICE_URL** with **Service3** domain name inside the [back-end.yaml](./applications/apps-eks/kubernetes/back-end.yaml) 
+
+We are ready to deploy the `frontend` and `backend` applications:
 
 ```bash
 kubectl config use-context cluster1
@@ -152,14 +157,11 @@ kubectl config use-context cluster2
 kubectl apply -f ./applications/apps-eks/kubernetes/back-end.yaml
 ```
 
-### Create VPC Lattice Target Groups and routing
+### Create VPC Lattice Target Groups and service routing
 
 We have our applications ready, and VPC Lattice Service Network and Services deployed, it's time to create all the routing to communicate our applications. Let's start creating the target groups:
 
-* We will export both the `frontend` and `backend` applications to make them available as VPC Lattice targets.
-* We will create the Lambda and AutoScaling group targets using CloudFormation.
-* We will associate the VPC where the EKS clusters are located to the Service Network using CloudFormation.
-* And finally, we will create all the routing configuration using CloudFormation.
+* First, we will export both the `frontend` and `backend` applications to make them available as VPC Lattice targets.
 
 ```bash
 kubectl config use-context cluster1
@@ -167,30 +169,43 @@ kubectl apply -f ./vpc-lattice/routes/frontend-export.yaml
 
 kubectl config use-context cluster2
 kubectl apply -f ./vpc-lattice/routes/backend-export.yaml
+```
 
-export LambdaArn=$(aws cloudformation describe-stacks --stack-name lambda-application --query 'Stacks[0].Outputs[?OutputKey == `LambdaArn`].OutputValue' --output text --region $AWS_REGION)
-export ASGVpcId=$(aws cloudformation describe-stacks --stack-name asg-application --query 'Stacks[0].Outputs[?OutputKey == `VpcId`].OutputValue' --output text --region $AWS_REGION)
-export InstanceID1=$(aws cloudformation describe-stacks --stack-name asg-application --query 'Stacks[0].Outputs[?OutputKey == `InstanceID1`].OutputValue' --output text --region $AWS_REGION)
-export InstanceID2=$(aws cloudformation describe-stacks --stack-name asg-application --query 'Stacks[0].Outputs[?OutputKey == `InstanceID2`].OutputValue' --output text --region $AWS_REGION)
+Within the AWS Conosole, you should see the two EKS services are exported to VPC Lattice as the service target groups. 
+![eks_svc_export](assets/eks_svc_export.png "eks_svc_export")
 
-aws cloudformation deploy --stack-name lattice-targets --template-file ./vpc-lattice/lattice-targetgroups-lambda-asg.yaml --region $AWS_REGION --parameter-overrides ServiceNetwork=$SERVICE_NETWORK_ID LambdaArn=$LambdaArn ASGVpcId=$ASGVpcId InstanceID1=$InstanceID1 InstanceID2=$InstanceID2 --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
+* Next, we will associate the two EKS VPCs to the Lattice Service Network using CloudFormation.
 
+```bash
 export Cluster1VpcID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=eksctl-$CLUSTER1_NAME-cluster/VPC --region $AWS_REGION | jq -r '.Vpcs[0].VpcId')
 export Cluster2VpcID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=eksctl-$CLUSTER2_NAME-cluster/VPC --region $AWS_REGION | jq -r '.Vpcs[0].VpcId')
 
 aws cloudformation deploy --stack-name lattice-eks-vpc-associations --template-file ./applications/eks-vpc-associations.yaml --region $AWS_REGION --parameter-overrides Cluster1VpcID=$Cluster1VpcID Cluster1SG=$CLUSTER1_SG Cluster2VpcID=$Cluster2VpcID Cluster2SG=$CLUSTER2_SG ServiceNetwork=$SERVICE_NETWORK_ID --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
+```
 
+* Next, we will create the Lambda service target.
+```bash
+export LambdaArn=$(aws cloudformation describe-stacks --stack-name lambda-application --query 'Stacks[0].Outputs[?OutputKey == `LambdaArn`].OutputValue' --output text --region $AWS_REGION)
+
+aws cloudformation deploy --stack-name lattice-targets --template-file ./vpc-lattice/lattice-targetgroups-lambda.yaml --region $AWS_REGION --parameter-overrides ServiceNetwork=$SERVICE_NETWORK_ID LambdaArn=$LambdaArn --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
+```
+
+
+* And finally, we will create all the service routing configuration using CloudFormation.
+```bash
 export SERVICE1=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service1`].OutputValue' --output text --region $AWS_REGION)
 export SERVICE2=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service2`].OutputValue' --output text --region $AWS_REGION)
 export SERVICE3=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service3`].OutputValue' --output text --region $AWS_REGION)
-export SERVICE4=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service4`].OutputValue' --output text --region $AWS_REGION)
-export TARGETCLUSTER1={TARGET_GROUP_ARN}
-export TARGETCLUSTER2={TARGET_GROUP_ARN}
-export TARGETLAMBDA=$(aws cloudformation describe-stacks --stack-name lattice-targets --query 'Stacks[0].Outputs[?OutputKey == `LatticeLambdaTarget`].OutputValue' --output text --region $AWS_REGION)
-export TARGETASG=$(aws cloudformation describe-stacks --stack-name lattice-targets --query 'Stacks[0].Outputs[?OutputKey == `LatticeASGTarget`].OutputValue' --output text --region $AWS_REGION)
 
-aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lattice/lattice-routes.yaml --region $AWS_REGION --parameter-overrides Service1=$SERVICE1 Service2=$SERVICE2 Service3=$SERVICE3 Service4=$SERVICE4 TargetGroupCluster1=$TARGETCLUSTER1 TargetGroupCluster2=$TARGETCLUSTER2 TargetGroupLambda=$TARGETLAMBDA TargetGroupASG=$TARGETASG --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
+export TARGETCLUSTER1={**TARGET_GROUP_ARN**}
+export TARGETCLUSTER2={**TARGET_GROUP_ARN**}
+export TARGETLAMBDA=$(aws cloudformation describe-stacks --stack-name lattice-targets --query 'Stacks[0].Outputs[?OutputKey == `LatticeLambdaTarget`].OutputValue' --output text --region $AWS_REGION)
+
+aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lattice/lattice-routes.yaml --region $AWS_REGION --parameter-overrides Service1=$SERVICE1 Service2=$SERVICE2 Service3=$SERVICE3 TargetGroupCluster1=$TARGETCLUSTER1 TargetGroupCluster2=$TARGETCLUSTER2 TargetGroupLambda=$TARGETLAMBDA --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
 ```
+
+
+
 
 ## Testing Connectivity
 
@@ -214,6 +229,13 @@ If you use the path */lambda*, *cluster1* is calling directly the Lamba function
 ![lambda_path](assets/lambda_path.png "Frotend application lambda path")
 
 * EKS cluster1 is talking directly to the Lambda function.
+
+
+
+
+
+
+
 
 ## Clean-up
 
