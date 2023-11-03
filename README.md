@@ -1,4 +1,4 @@
-# Amazon VPC Lattice - Build secure multi-account multi-VPC connectivity for your applications
+# Amazon VPC Lattice Demo - Build distribued application stack using EKS, Lambda and VMware Cloud on AWS
 
 This repository contains example code to deploy a service to service communication using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and an [Auto Scaling group](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-groups.html). You will connect them using VPC Lattice following this setup:
 
@@ -260,7 +260,7 @@ If you use the path */lambda*, *cluster1* is calling directly the Lamba function
 
 ## Clean-up
 
-* Delete Amazon VPC Lattice routes, target groups (Lambda and AutoScaling group), services, and VPC associations using CloudFormation
+* Delete Amazon VPC Lattice routes, target groups, services, and VPC associations using CloudFormation
 
 ```bash
 aws cloudformation delete-stack --stack-name lattice-routing --region $AWS_REGION
@@ -272,44 +272,36 @@ aws cloudformation delete-stack --stack-name lattice-services --region $AWS_REGI
 * Delete VPC Lattice resources created using EKS.
 
 ```bash 
+kubectl config use-context cluster1
 kubectl delete -f vpc-lattice/routes
-kubectl delete -f vpc-lattice/controller/gatewayclass.yaml
-kubectl delete -f vpc-lattice/controller/deploy-resources.yaml #use helm if you have used the helm installation steps!
+
+kubectl config use-context cluster2
+kubectl delete -f vpc-lattice/routes
+
+
 eksctl delete iamserviceaccount --name=gateway-api-controller --cluster=${CLUSTER1_NAME} --region=${AWS_REGION} --namespace=system
 eksctl delete iamserviceaccount --name=gateway-api-controller --cluster=${CLUSTER1_NAME} --region=${AWS_REGION} --namespace=system
 aws iam delete-policy --policy-arn ${VPCLatticeControllerIAMPolicyArn}
 ```
 
-* Delete all the applications - cluster1 and cluster2 via `eksclt` and the Lambda function and Auto Scaling group via CloudFormation
+* Delete EKS cluster1 and cluster2 via `eksclt` and the Lambda function via CloudFormation
 
 ```bash
 eksctl delete cluster --name=${CLUSTER1_NAME} --region=${AWS_REGION}
 eksctl delete cluster --name=${CLUSTER2_NAME} --region=${AWS_REGION}
 aws cloudformation delete-stack --stack-name lambda-application --region $AWS_REGION
-aws cloudformation delete-stack --stack-name asg-application --region $AWS_REGION
 ```
 
 * Delete VPC Lattice Service Network
 
 ```bash
-aws cloudformation service-network --stack-name asg-application --region $AWS_REGION
+aws cloudformation delete-stack --stack-name service-network --region $AWS_REGION
 ```
 
-* Build Frontend docker image
-```bash
-cd build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice/applications/apps-eks
-sudo docker build -t schen13912/vmc-frontend:latest -f dockerfile --no-cache  .
-sudo docker push schen13912/vmc-frontend:v2
-```
-* Build Backend docker image
-```bash
-cd build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice/applications/vmc-backend
-docker build  -t schen13912/vmc-backend:latest -f Dockerfile --no-cache  .
-sudo docker push schen13912/vmc-backend:latest
-docker run --rm -ti  -p 3000:3000 -e VMC_API_TOKEN=<> -e VMC_ORG_ID=<> -e VMC_SDDC_ID=<> schen13912/vmc-backend:latest 
-```
+
 
 ## References
 
 * [Introducing Amazon VPC Lattice](https://d1.awsstatic.com/events/Summits/reinvent2022/NET215_NEW-LAUNCH!-Introducing-Amazon-VPC-Lattice-Simplifying-application-networking.pdf).
-
+* [Build secure multi-account multi-VPC connectivity for your applications with Amazon VPC Lattice](https://aws.amazon.com/blogs/networking-and-content-delivery/build-secure-multi-account-multi-vpc-connectivity-for-your-applications-with-amazon-vpc-lattice/)
+* [Simplify Application Networking with Amazon VPC Lattice and VMware Cloud on AWS](https://aws.amazon.com/blogs/apn/simplify-application-networking-with-amazon-vpc-lattice-and-vmware-cloud-on-aws/)
