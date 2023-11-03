@@ -3,10 +3,10 @@
 This repository contains sample code to deploy an application layer network using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). 
 &nbsp;  
 
-You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
+This is built based on the AWS Sample project [Amazon VPC Lattice - Build secure multi-account multi-VPC connectivity for your applications](https://github.com/aws-samples/build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice), modified to include the VMware Cloud on AWS service components.
 &nbsp;  
 
-This is built based on the AWS Sample project [Amazon VPC Lattice - Build secure multi-account multi-VPC connectivity for your applications](https://github.com/aws-samples/build-secure-multi-account-vpc-connnectivity-applications-with-amazon-vpc-lattice), modified to include the VMware Cloud on AWS service components.
+You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
 &nbsp;  
 
 You will connect them using Amazon VPC Lattice with the following architecture.
@@ -33,7 +33,8 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * [AWS CLI](https://aws.amazon.com/cli/) installed - for the deployment of VPC Lattice resources and applications using [AWS CloudFormation](https://aws.amazon.com/cloudformation/).
 * `eksctl` and `kubectl` installed - for the deployment of EKS applications.
 * Remember to use an AWS Region where VPC Lattice is supported.
-* Deploy a VMware Cloud on AWS SDDC with a Connected VPC at the same region as the VPC Lattice service network. 
+* Create a Connected VPC (for SDDC) at the same region as the VPC Lattice service network. 
+* Deploy a VMware Cloud on AWS SDDC (with 1 or 2 Linux VMs) at the same region as the VPC Lattice service network. 
 
 &nbsp;   
 
