@@ -1,7 +1,9 @@
 # Amazon VPC Lattice - Build a distributed app using Amazon EKS, Lambda and VMware Cloud on AWS
 
 This repository contains sample code to deploy an application layer network using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). 
+&nbsp;  
 You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
+&nbsp;  
 You will connect them using Amazon VPC Lattice with the following architecture.
 
 ![diagram](assets/diagram.png "Diagram")
@@ -9,19 +11,15 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 ## Demo design points
 * **frontend** service renders the main page, and based on the request path (backend/lambda/vmc) it will display which AWS service is running at backend, as well as the AWS Region or VMC SDDC details.  
 * The Lambda function retrieves the current AWS Region, and the **vmc-backend** service retrieves the running SDDC details.
-
 * client (consumer app) will access the **frontend** service (runnning on EKS cluster1) via Lattice **Service1**.
 * **frontend** service will access **backend** service (running on EKS cluster2) via Lattice **Service3** on path "/backend".
 * **backend** service will need to access lambda via Lattice **Service3** on path "/lambda" to get the AWS Region. 
 * **frontend** service can also access lambda directly via Lattice **Service3** on path "/lambda".
 * **frontend** service will access **vmc-backend** service (runnig on SDDC) via Lattice **Service2** on path "/vmc".
-
 * Each service is deployed in its own VPC, which can belong to the same or different AWS accounts. 
 * EKS-Cluster1 VPC and EKS-Cluster2 VPC are using overlapping CIDR. This is intential to showcase VPC Lattice can solve IP confilicting issues since it uses an unique link-local address range. 
 
-&nbsp;   &nbsp;  
-
-
+&nbsp;   
 
 
 
@@ -33,7 +31,7 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * Remember to use an AWS Region where VPC Lattice is supported.
 * Deploy a VMware Cloud on AWS SDDC with a Connected VPC at the same region as the VPC Lattice service network. 
 
-&nbsp;   &nbsp;  
+&nbsp;   
 
 ## Deployment
 
