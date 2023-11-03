@@ -1,11 +1,29 @@
-# Amazon VPC Lattice Demo - Build a distributed application using Amazon EKS, Lambda and VMware Cloud on AWS
+# Amazon VPC Lattice - Build a distributed app using Amazon EKS, Lambda and VMware Cloud on AWS
 
 This repository contains sample code to deploy an application layer network using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). 
-
 You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
 You will connect them using Amazon VPC Lattice with the following architecture.
 
 ![diagram](assets/diagram.png "Diagram")
+
+## Demo design points
+* **frontend** service renders the main page, and based on the request path (backend/lambda/vmc) it will display which AWS service is running at backend, as well as the AWS Region or VMC SDDC details.  
+* The Lambda function retrieves the current AWS Region, and the **vmc-backend** service retrieves the running SDDC details.
+
+* client (consumer app) will access the **frontend** service (runnning on EKS cluster1) via Lattice **Service1**.
+* **frontend** service will access **backend** service (running on EKS cluster2) via Lattice **Service3** on path "/backend".
+* **backend** service will need to access lambda via Lattice **Service3** on path "/lambda" to get the AWS Region. 
+* **frontend** service can also access lambda directly via Lattice **Service3** on path "/lambda".
+* **frontend** service will access **vmc-backend** service (runnig on SDDC) via Lattice **Service2** on path "/vmc".
+
+* Each service is deployed in its own VPC, which can belong to the same or different AWS accounts. 
+* EKS-Cluster1 VPC and EKS-Cluster2 VPC are using overlapping CIDR. This is intential to showcase VPC Lattice can solve IP confilicting issues since it uses an unique link-local address range. 
+
+&nbsp;   &nbsp;  
+
+
+
+
 
 ## Prerequisites
 
@@ -14,6 +32,8 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * `eksctl` and `kubectl` installed - for the deployment of EKS applications.
 * Remember to use an AWS Region where VPC Lattice is supported.
 * Deploy a VMware Cloud on AWS SDDC with a Connected VPC at the same region as the VPC Lattice service network. 
+
+&nbsp;   &nbsp;  
 
 ## Deployment
 
@@ -207,10 +227,11 @@ export TARGETLAMBDA=$(aws cloudformation describe-stacks --stack-name lattice-ta
 aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lattice/lattice-routes.yaml --region $AWS_REGION --parameter-overrides Service1=$SERVICE1 Service2=$SERVICE2 Service3=$SERVICE3 TargetGroupCluster1=$TARGETCLUSTER1 TargetGroupCluster2=$TARGETCLUSTER2 TargetGroupLambda=$TARGETLAMBDA --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
 ```
 
+&nbsp;   &nbsp;  
 
 ### Deploy VMC backend service and integrate it into Service Network. 
 
-* Deploy (Containerized) VMC backend service to the Linux VMs running on the SDDC
+* Now we will deploy the VMC backend service onto VMs running on SDDC, and integrate it to the Lattice sercie network. First, deploy the (containerized) VMC backend service onto the Linux VMs running on the SDDC.
 
 ```bash
 export VMC_API_TOKEN={}
@@ -229,6 +250,8 @@ sudo docker run --rm -ti -d  -p  3000:3000 -e VMC_API_TOKEN=$VMC_API_TOKEN -e VM
 * Finally, add a Http Listner to **Service2** forwarding to the ALB target group. 
 ![vmc_lattice_service](assets/vmc_lattice_service.png "vmc_lattice_service")
 
+
+&nbsp;   &nbsp;   &nbsp;
 
 
 ## Testing Connectivity
@@ -256,8 +279,7 @@ If you use the path */lambda*, *cluster1* is calling directly the Lamba function
 
 
 
-
-
+&nbsp;   &nbsp;   &nbsp;
 
 
 
