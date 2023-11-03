@@ -1,6 +1,9 @@
-# Amazon VPC Lattice Demo - Build distribued application stack using EKS, Lambda and VMware Cloud on AWS
+# Amazon VPC Lattice Demo - Build a distributed application using Amazon EKS, Lambda and VMware Cloud on AWS
 
-This repository contains example code to deploy a service to service communication using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and an [Auto Scaling group](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-groups.html). You will connect them using VPC Lattice following this setup:
+This repository contains sample code to deploy an application layer network using [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/). 
+
+You will find several applications hosted in [Amazon EKS](https://aws.amazon.com/eks/), [AWS Lambda](https://aws.amazon.com/lambda/), and [VMware Cloud on AWS](https://aws.amazon.com/vmware/). 
+You will connect them using Amazon VPC Lattice with the following architecture.
 
 ![diagram](assets/diagram.png "Diagram")
 
