@@ -35,7 +35,7 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 * Remember to use an AWS Region where VPC Lattice is supported.
 * Create a Connected VPC (for SDDC) at the same region as the VPC Lattice service network. 
 * Deploy a VMware Cloud on AWS SDDC at the same region as the VPC Lattice service network. 
-* Deploy 1 or 2 Linux VMs (with Docker installed) onto the SDDC, with connectivity into the Connected VPC via SDDC ENI. 
+* Deploy 1 or 2 Linux VMs onto the SDDC, with connectivity into the Connected VPC via SDDC ENI. You can choose any Linux flavor and please ensure Docker is installed, as the VMC backend app is packaged as a docker container to streamline deployment. 
 
 &nbsp;   
 
@@ -44,7 +44,7 @@ You will connect them using Amazon VPC Lattice with the following architecture.
 Before start with the deployment, let's define some variables we'll use during the deployment:
 
 ```bash 
-export AWS_REGION=ap-southeast-2
+export AWS_REGION=us-east-2
 export SERVICE_NETWORK_NAME=service-network
 export CLUSTER1_NAME=cluster1
 export CLUSTER2_NAME=cluster2
@@ -224,8 +224,8 @@ export SERVICE1=$(aws cloudformation describe-stacks --stack-name lattice-servic
 export SERVICE2=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service2`].OutputValue' --output text --region $AWS_REGION)
 export SERVICE3=$(aws cloudformation describe-stacks --stack-name lattice-services --query 'Stacks[0].Outputs[?OutputKey == `Service3`].OutputValue' --output text --region $AWS_REGION)
 
-export TARGETCLUSTER1={**TARGET_GROUP_ARN**}
-export TARGETCLUSTER2={**TARGET_GROUP_ARN**}
+export TARGETCLUSTER1={REPLACE_WITH_FRONTEND_TARGET_GROUP_ARN}
+export TARGETCLUSTER2={REPLACE_WITH_BACKEND_TARGET_GROUP_ARN}
 export TARGETLAMBDA=$(aws cloudformation describe-stacks --stack-name lattice-targets --query 'Stacks[0].Outputs[?OutputKey == `LatticeLambdaTarget`].OutputValue' --output text --region $AWS_REGION)
 
 aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lattice/lattice-routes.yaml --region $AWS_REGION --parameter-overrides Service1=$SERVICE1 Service2=$SERVICE2 Service3=$SERVICE3 TargetGroupCluster1=$TARGETCLUSTER1 TargetGroupCluster2=$TARGETCLUSTER2 TargetGroupLambda=$TARGETLAMBDA --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
@@ -235,12 +235,12 @@ aws cloudformation deploy --stack-name lattice-routing --template-file ./vpc-lat
 
 ### Deploy VMC backend service and integrate it into Service Network. 
 
-* Now we will deploy the VMC backend service onto the Linux VMs running on SDDC, and integrate it to the Lattice sercie network. To deploy the (containerized) VMC backend service, you will need to supply the **VMC API Token**, **Org ID** and **SDDC ID**. 
+* Now we will deploy the VMC backend service onto the Linux VMs running on SDDC, and integrate it to the Lattice sercie network. To deploy the containerized VMC backend service, you will need to supply the **VMC API Token**, **Org ID** and **SDDC ID**. 
 
 ```bash
-export VMC_API_TOKEN={}
-export VMC_ORG_ID={}
-export VMC_SDDC_ID={}
+export VMC_API_TOKEN=
+export VMC_ORG_ID=
+export VMC_SDDC_ID=
 
 sudo docker login
 sudo docker pull schen13912/vmc-backend:latest
@@ -277,6 +277,12 @@ Now you should be able to acccess the `frontend` service using **Service1** DNS 
 If you use the path */backend*, we are calling the `backend` service hosted in *EKS cluster2*. The `backend` service will then call the `Lambda` function to retrieve the AWS Region where the application is located.
 
 ![eks_path](assets/eks_path.png "Frotend application eks path")
+
+Note, if you are receiving error message *"Something went wrong, check Lattice URL"*, most likely you forgot to update the Lattice domain name (or put the incorrect URL) in the EKS frontend deployment files. You can use the below command to edit and update the Kubernetes deployment YAML file. 
+
+```bash
+kubectl edit deployment frontend
+```
 
 If you use the path */lambda*, `frontend` will call directly the `Lamba` function to get the AWS Region:
 
